@@ -1,0 +1,45 @@
+version: 0.2
+phases:
+  pre_build:
+    commands:
+
+      - echo "criando pasta de build da lambda e copiando os arquivos"
+      - mkdir build
+      - cp index.js ./build/index.js
+
+      - echo "compactando o código da lambda"
+      - cd build
+      - zip -r lambda-function-version-$CODEBUILD_BUILD_NUMBER.zip .
+
+  build:
+    commands:
+
+      - echo "fazendo a atualização do código da lambda"
+      - aws lambda update-function-code --function-name $LAMBDA_NAME --zip-file fileb://lambda-function-version-$CODEBUILD_BUILD_NUMBER.zip
+
+      - cd ..
+
+      - echo "Aguardando a atualização do código da função"
+      - chmod 755 ./scripts/await-update-code.sh
+      - ./scripts/await-update-code.sh $LAMBDA_NAME
+
+      - echo "Alterando o nome e alias da função no arquivo no arquivo appspec.yml"
+      - sed -i "s|\LAMBDA_NAME|$LAMBDA_NAME|" appspec.yml
+      - sed -i "s|\LAMBDA_ALIAS|$LAMBDA_ALIAS|" appspec.yml
+
+      - echo "Obtendo a versão atual da Lambda no alias $LAMBDA_ALIAS"
+      - LAMBDA_CURRENT_VERSION=$(aws lambda get-alias --function-name $LAMBDA_NAME --name $LAMBDA_ALIAS --query 'FunctionVersion' --output text)
+
+      - echo "Atualizando a versão atual da lambda no arquivo appspec.yml"
+      - sed -i "s|\LAMBDA_CURRENT_VERSION|$LAMBDA_CURRENT_VERSION|" appspec.yml
+
+      - echo "Publica um nova versão de código e obtem o numero da versão publicada"
+      - LAMBDA_TARGET_VERSION=$(aws lambda publish-version --function-name $LAMBDA_NAME --query 'Version' --output text)
+
+      - echo "Atualizando a versões atual do código da lambda no arquivo appspec.yml"
+      - sed -i "s|\LAMBDA_TARGET_VERSION|$LAMBDA_TARGET_VERSION|" appspec.yml
+
+artifacts:
+  files:
+    - ./appspec.yml
+  discard-paths: yes

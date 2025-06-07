@@ -1,0 +1,9 @@
+version: 0.0
+Resources:
+  - TargetService:
+      Type: AWS::Lambda::Function
+      Properties:
+        Name: LAMBDA_NAME
+        Alias: LAMBDA_ALIAS
+        CurrentVersion: LAMBDA_CURRENT_VERSION
+        TargetVersion: LAMBDA_TARGET_VERSION
